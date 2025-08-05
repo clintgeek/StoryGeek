@@ -6,10 +6,6 @@ import {
   Typography,
   TextField,
   Button,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Grid,
   Chip,
   Alert,
@@ -237,20 +233,21 @@ function StoryCreation() {
                   </Grid>
 
                   <Grid item xs={12} md={6}>
-                    <FormControl fullWidth required>
-                      <InputLabel>Genre</InputLabel>
-                      <Select
-                        value={formData.genre}
-                        label="Genre"
-                        onChange={handleInputChange('genre')}
-                      >
-                        {genres.map((genre) => (
-                          <MenuItem key={genre} value={genre}>
-                            {genre}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
+                    <TextField
+                      fullWidth
+                      select
+                      label="Genre"
+                      value={formData.genre}
+                      onChange={handleInputChange('genre')}
+                      required
+                      helperText="Select a genre for your story"
+                    >
+                      {genres.map((genre) => (
+                        <option key={genre} value={genre}>
+                          {genre}
+                        </option>
+                      ))}
+                    </TextField>
                   </Grid>
 
                   <Grid item xs={12}>
