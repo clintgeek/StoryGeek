@@ -33,7 +33,7 @@ services:
     container_name: storygeek_frontend
     restart: unless-stopped
     ports:
-      - "9988:80"
+      - "9977:80"
     depends_on:
       - backend
     networks:
