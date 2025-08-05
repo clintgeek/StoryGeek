@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  # MongoDB (shared with other GeekSuite apps)
+  mongodb:
+    image: mongo:7.0
+    container_name: storygeek_mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongodb-init.js:/docker-entrypoint-initdb.d/mongodb-init.js:ro
+    ports:
+      - "27017:27017"
+    networks:
+      - storygeek_network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: storygeek_backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DB_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/storygeek?authSource=admin
+      CLAUDE_API_KEY: ${CLAUDE_API_KEY}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      JWT_SECRET: ${JWT_SECRET}
+      BASEGEEK_URL: ${BASEGEEK_URL}
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mongodb
+    networks:
+      - storygeek_network
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: storygeek_frontend
+    restart: unless-stopped
+    ports:
+      - "9988:80"
+    depends_on:
+      - backend
+    networks:
+      - storygeek_network
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+volumes:
+  mongodb_data:
+
+networks:
+  storygeek_network:
+    driver: bridge
