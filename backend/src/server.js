@@ -41,7 +41,7 @@ mongoose.connect(process.env.DB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
-.then(() => console.log('Connected to MongoDB'))
+.then(() => console.log('Connected to MongoDB (DataGeek instance)'))
 .catch(err => console.error('MongoDB connection error:', err));
 
 // Routes
