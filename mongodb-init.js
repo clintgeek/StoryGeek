@@ -9,7 +9,7 @@ db.createCollection('users');
 
 // Create indexes for better performance
 db.stories.createIndex({ "userId": 1, "status": 1 });
-db.stories.createIndex({ "worldState.currentChapter": 1 });
+
 db.stories.createIndex({ "createdAt": -1 });
 db.stories.createIndex({ "updatedAt": -1 });
 

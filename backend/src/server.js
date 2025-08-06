@@ -9,7 +9,7 @@ require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
 const storyRoutes = require('./routes/stories');
-const diceRoutes = require('./routes/dice');
+
 const characterRoutes = require('./routes/characters');
 
 const app = express();
@@ -47,7 +47,7 @@ mongoose.connect(process.env.DB_URI, {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/stories', storyRoutes);
-app.use('/api/dice', diceRoutes);
+
 app.use('/api/characters', characterRoutes);
 
 // Health check

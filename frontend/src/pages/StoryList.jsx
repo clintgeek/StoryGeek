@@ -16,14 +16,15 @@ import {
   DialogActions,
   IconButton,
   Paper,
+  MenuItem,
 } from '@mui/material';
 import {
   Add as AddIcon,
   PlayArrow as PlayIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Casino as DiceIcon,
-  AttachMoney as CostIcon,
+
+
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 
@@ -213,20 +214,7 @@ function StoryList() {
                     <Typography variant="caption" color="text.secondary">
                       {formatDate(story.updatedAt)}
                     </Typography>
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                      <Chip
-                        icon={<CostIcon />}
-                        label={`$${story.stats?.totalCost?.toFixed(4) || '0.0000'}`}
-                        size="small"
-                        variant="outlined"
-                      />
-                      <Chip
-                        icon={<DiceIcon />}
-                        label={story.stats?.totalDiceRolls || 0}
-                        size="small"
-                        variant="outlined"
-                      />
-                    </Box>
+
                   </Box>
 
                   <Box sx={{ display: 'flex', gap: 1 }}>
@@ -298,18 +286,18 @@ function StoryList() {
                 value={startForm.genre}
                 onChange={handleInputChange('genre')}
               >
-                <option value="Fantasy">Fantasy</option>
-                <option value="Sci-Fi">Sci-Fi</option>
-                <option value="Horror">Horror</option>
-                <option value="Romance">Romance</option>
-                <option value="Mystery">Mystery</option>
-                <option value="Adventure">Adventure</option>
-                <option value="Historical">Historical</option>
-                <option value="Contemporary">Contemporary</option>
-                <option value="Post-Apocalyptic">Post-Apocalyptic</option>
-                <option value="Steampunk">Steampunk</option>
-                <option value="Cyberpunk">Cyberpunk</option>
-                <option value="Western">Western</option>
+                <MenuItem value="Fantasy">Fantasy</MenuItem>
+                <MenuItem value="Sci-Fi">Sci-Fi</MenuItem>
+                <MenuItem value="Horror">Horror</MenuItem>
+                <MenuItem value="Romance">Romance</MenuItem>
+                <MenuItem value="Mystery">Mystery</MenuItem>
+                <MenuItem value="Adventure">Adventure</MenuItem>
+                <MenuItem value="Historical">Historical</MenuItem>
+                <MenuItem value="Contemporary">Contemporary</MenuItem>
+                <MenuItem value="Post-Apocalyptic">Post-Apocalyptic</MenuItem>
+                <MenuItem value="Steampunk">Steampunk</MenuItem>
+                <MenuItem value="Cyberpunk">Cyberpunk</MenuItem>
+                <MenuItem value="Western">Western</MenuItem>
               </TextField>
             </Grid>
           </Grid>

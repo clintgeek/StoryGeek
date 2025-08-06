@@ -12,10 +12,14 @@ import {
   CircularProgress,
   Paper,
   Divider,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Select,
 } from '@mui/material';
 import {
   AutoAwesome as MagicIcon,
-  Casino as DiceIcon,
+
   Book as BookIcon,
   Add as AddIcon,
 } from '@mui/icons-material';
@@ -76,6 +80,7 @@ function StoryCreation() {
   const [selectedTemplate, setSelectedTemplate] = useState(null);
 
   const handleInputChange = (field) => (event) => {
+    console.log(`Setting ${field} to:`, event.target.value);
     setFormData(prev => ({
       ...prev,
       [field]: event.target.value
@@ -243,9 +248,9 @@ function StoryCreation() {
                       helperText="Select a genre for your story"
                     >
                       {genres.map((genre) => (
-                        <option key={genre} value={genre}>
+                        <MenuItem key={genre} value={genre}>
                           {genre}
-                        </option>
+                        </MenuItem>
                       ))}
                     </TextField>
                   </Grid>

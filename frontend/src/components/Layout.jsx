@@ -14,70 +14,68 @@ import {
   useTheme,
   useMediaQuery,
   Container,
-  Badge,
-  Avatar,
-  Menu,
-  MenuItem,
   Divider,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
   Book as BookIcon,
   Add as AddIcon,
-  Casino as CasinoIcon,
   People as PeopleIcon,
   Settings as SettingsIcon,
-  AccountCircle as AccountIcon,
-  Notifications as NotificationsIcon,
+  DarkMode as DarkModeIcon,
+  LightMode as LightModeIcon,
+  AutoStories as AutoStoriesIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-const drawerWidth = 240;
+const drawerWidth = 220;
 
-const menuItems = [
+const baseMenuItems = [
   { text: 'My Stories', icon: <BookIcon />, path: '/' },
   { text: 'Create Story', icon: <AddIcon />, path: '/create' },
-  { text: 'Dice Roller', icon: <CasinoIcon />, path: '/dice' },
-  { text: 'Characters', icon: <PeopleIcon />, path: '/characters' },
   { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
 ];
 
-function Layout({ children }) {
+const storyMenuItems = [
+  { text: 'Characters', icon: <PeopleIcon />, path: '/characters' },
+];
+
+function Layout({ children, onThemeToggle, isDarkMode }) {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [anchorEl, setAnchorEl] = useState(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Check if we're in a story context (play or characters route)
+  const isInStoryContext = location.pathname.startsWith('/play/') || location.pathname.startsWith('/characters/');
+
+  // Combine menu items based on context
+  const menuItems = isInStoryContext ? [...baseMenuItems, ...storyMenuItems] : baseMenuItems;
 
   const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
-  };
-
-  const handleMenuOpen = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
+    setDrawerOpen(!drawerOpen);
   };
 
   const handleNavigation = (path) => {
-    navigate(path);
-    if (isMobile) {
-      setMobileOpen(false);
+    // If navigating to characters from a story context, include the storyId
+    if (path === '/characters' && isInStoryContext) {
+      const storyId = location.pathname.match(/\/(play|characters)\/([^\/]+)/)?.[2];
+      if (storyId) {
+        navigate(`/characters/${storyId}`);
+      } else {
+        navigate(path);
+      }
+    } else {
+      navigate(path);
     }
+
+    // Close drawer after navigation
+    setDrawerOpen(false);
   };
 
   const drawer = (
     <Box>
-      <Toolbar>
-        <Typography variant="h6" noWrap component="div" sx={{ color: 'primary.main' }}>
-          StoryGeek
-        </Typography>
-      </Toolbar>
-      <Divider />
       <List>
         {menuItems.map((item) => (
           <ListItem key={item.text} disablePadding>
@@ -87,7 +85,7 @@ function Layout({ children }) {
               sx={{
                 '&.Mui-selected': {
                   backgroundColor: 'primary.main',
-                  color: 'white',
+                  color: 'primary.contrastText',
                   '&:hover': {
                     backgroundColor: 'primary.dark',
                   },
@@ -111,112 +109,84 @@ function Layout({ children }) {
       <AppBar
         position="fixed"
         sx={{
-          width: { md: `calc(100% - ${drawerWidth}px)` },
-          ml: { md: `${drawerWidth}px` },
-          backgroundColor: 'background.paper',
-          color: 'text.primary',
-          boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+          width: '100%',
+          backgroundColor: 'primary.main',
+          color: 'primary.contrastText',
+          boxShadow: '0px 2px 8px rgba(0,0,0,0.1)',
+          borderBottom: '1px solid rgba(0,0,0,0.1)',
+          zIndex: theme.zIndex.drawer + 1,
         }}
       >
-        <Toolbar>
+        <Toolbar sx={{ minHeight: '60px !important' }}>
           <IconButton
             color="inherit"
             aria-label="open drawer"
             edge="start"
             onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { md: 'none' } }}
+            sx={{ mr: 2 }}
           >
             <MenuIcon />
           </IconButton>
 
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            {menuItems.find(item => item.path === location.pathname)?.text || 'StoryGeek'}
-          </Typography>
-
-          {/* Right side actions */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <IconButton color="inherit">
-              <Badge badgeContent={3} color="error">
-                <NotificationsIcon />
-              </Badge>
-            </IconButton>
-
-            <IconButton
-              onClick={handleMenuOpen}
-              color="inherit"
-            >
-              <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
-                <AccountIcon />
-              </Avatar>
-            </IconButton>
+          {/* Logo/Brand */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexGrow: 1 }}>
+            <AutoStoriesIcon sx={{ fontSize: 20 }} />
+            <Typography variant="h6" noWrap component="div" sx={{
+              fontWeight: 800,
+              fontSize: '1.25rem',
+              ml: 0.5
+            }}>
+              StoryGeek
+            </Typography>
+            <Typography variant="caption" sx={{
+              opacity: 0.9,
+              fontFamily: '"Roboto Mono", monospace',
+              fontSize: '1rem',
+              fontWeight: 700,
+              ml: 0.5
+            }}>
+              &lt;/&gt;
+            </Typography>
           </Box>
 
-          {/* User menu */}
-          <Menu
-            anchorEl={anchorEl}
-            open={Boolean(anchorEl)}
-            onClose={handleMenuClose}
-            PaperProps={{
-              sx: {
-                backgroundColor: 'background.paper',
-                border: '1px solid',
-                borderColor: 'divider',
-              },
+          {/* Theme Toggle */}
+          <IconButton
+            onClick={onThemeToggle}
+            color="inherit"
+            sx={{
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              '&:hover': {
+                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+              }
             }}
           >
-            <MenuItem onClick={handleMenuClose}>Profile</MenuItem>
-            <MenuItem onClick={handleMenuClose}>My Account</MenuItem>
-            <Divider />
-            <MenuItem onClick={handleMenuClose}>Logout</MenuItem>
-          </Menu>
+            {isDarkMode ? <LightModeIcon /> : <DarkModeIcon />}
+          </IconButton>
         </Toolbar>
       </AppBar>
 
-      {/* Navigation Drawer */}
-      <Box
-        component="nav"
-        sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}
+      {/* Navigation Drawer - Temporary overlay */}
+      <Drawer
+        variant="temporary"
+        open={drawerOpen}
+        onClose={handleDrawerToggle}
+        ModalProps={{
+          keepMounted: true, // Better open performance on mobile.
+        }}
+        sx={{
+          '& .MuiDrawer-paper': {
+            boxSizing: 'border-box',
+            width: drawerWidth,
+            backgroundColor: 'background.paper',
+            borderRight: '1px solid',
+            borderColor: 'divider',
+            mt: '60px', // Position below header
+            height: 'calc(100vh - 60px)', // Full height minus header
+          },
+        }}
       >
-        {/* Mobile drawer */}
-        <Drawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={handleDrawerToggle}
-          ModalProps={{
-            keepMounted: true, // Better open performance on mobile.
-          }}
-          sx={{
-            display: { xs: 'block', md: 'none' },
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
-              width: drawerWidth,
-              backgroundColor: 'background.paper',
-              borderRight: '1px solid',
-              borderColor: 'divider',
-            },
-          }}
-        >
-          {drawer}
-        </Drawer>
-
-        {/* Desktop drawer */}
-        <Drawer
-          variant="permanent"
-          sx={{
-            display: { xs: 'none', md: 'block' },
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
-              width: drawerWidth,
-              backgroundColor: 'background.paper',
-              borderRight: '1px solid',
-              borderColor: 'divider',
-            },
-          }}
-          open
-        >
-          {drawer}
-        </Drawer>
-      </Box>
+        {drawer}
+      </Drawer>
 
       {/* Main content */}
       <Box
@@ -224,8 +194,10 @@ function Layout({ children }) {
         sx={{
           flexGrow: 1,
           p: 3,
-          width: { md: `calc(100% - ${drawerWidth}px)` },
-          mt: '64px', // AppBar height
+          width: '100%',
+          mt: '60px', // AppBar height
+          backgroundColor: 'background.default',
+          minHeight: 'calc(100vh - 60px)',
         }}
       >
         <Container maxWidth="xl">

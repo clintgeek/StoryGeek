@@ -9,6 +9,7 @@ Create a `.env` file in the StoryGeek root directory with the following variable
 CLAUDE_API_KEY=your_claude_api_key_here
 GROQ_API_KEY=your_groq_api_key_here
 GEMINI_API_KEY=your_gemini_api_key_here
+TOGETHER_API_KEY=your_together_api_key_here
 
 # JWT Secret (for future baseGeek integration)
 JWT_SECRET=your_jwt_secret_here
@@ -40,6 +41,12 @@ NODE_ENV=development
 1. Sign up at: https://aistudio.google.com/
 2. Go to "Get API key"
 3. Create a new API key
+
+### Together AI (Gaming-Friendly - Recommended)
+1. Sign up at: https://together.ai/
+2. Go to "API Keys" section
+3. Generate a new API key
+4. **Much less ethical restrictions** - perfect for gaming!
 
 ## Quick Start
 

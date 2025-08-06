@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -20,10 +20,8 @@ import {
 } from '@mui/material';
 import {
   Send as SendIcon,
-  Casino as DiceIcon,
   Info as InfoIcon,
   Person as PersonIcon,
-  AttachMoney as CostIcon,
   Pause as PauseIcon,
   PlayArrow as PlayIcon,
 } from '@mui/icons-material';
@@ -34,6 +32,7 @@ function StoryPlay() {
   const navigate = useNavigate();
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const messagesContainerRef = useRef(null);
 
   const [messages, setMessages] = useState([]);
   const [userInput, setUserInput] = useState('');
@@ -41,17 +40,43 @@ function StoryPlay() {
   const [story, setStory] = useState(null);
   const [error, setError] = useState('');
   const [showCommands, setShowCommands] = useState(false);
-  const [showCostDialog, setShowCostDialog] = useState(false);
-  const [costInfo, setCostInfo] = useState(null);
 
-  // Scroll to bottom when new messages arrive
+
+  // Scroll to top of new AI responses
+  const scrollToTopOfNewResponse = () => {
+    if (messagesContainerRef.current) {
+      const container = messagesContainerRef.current;
+      const lastMessage = container.lastElementChild;
+      if (lastMessage) {
+        lastMessage.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  };
+
+  // Scroll to bottom when user sends a message
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
-    scrollToBottom();
+    // Only scroll to bottom for user messages, scroll to top for AI responses
+    if (messages.length > 0 && messages[messages.length - 1].type === 'ai') {
+      scrollToTopOfNewResponse();
+    } else if (messages.length > 0 && messages[messages.length - 1].type === 'user') {
+      scrollToBottom();
+    }
   }, [messages]);
+
+  // Maintain input focus after AI responses
+  useEffect(() => {
+    if (!loading && inputRef.current) {
+      // Small delay to ensure the component has finished rendering
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, messages.length]);
 
   // Load story on component mount
   useEffect(() => {
@@ -131,37 +156,23 @@ function StoryPlay() {
         type: 'ai',
         content: data.aiResponse,
         timestamp: new Date(),
-        diceResults: data.diceResult ? [data.diceResult] : [],
-        cost: data.cost,
-        totalCost: data.totalCost
+        diceResults: data.diceResult ? [data.diceResult] : []
       };
 
       setMessages(prev => [...prev, aiMessage]);
 
       // Update story data
-      if (story) {
-        setStory(prev => ({
-          ...prev,
-          stats: {
-            ...prev.stats,
-            totalInteractions: data.currentChapter,
-            totalCost: data.totalCost
-          },
-          worldState: {
-            ...prev.worldState,
-            currentChapter: data.currentChapter
-          }
-        }));
-      }
+              if (story) {
+          setStory(prev => ({
+            ...prev,
+            stats: {
+              ...prev.stats,
+              totalInteractions: data.totalInteractions
+            }
+          }));
+        }
 
-      // Show cost reminder every $0.50
-      if (data.totalCost && Math.floor(data.totalCost * 2) > Math.floor((data.totalCost - data.cost) * 2)) {
-        setCostInfo({
-          currentCost: data.cost,
-          totalCost: data.totalCost
-        });
-        setShowCostDialog(true);
-      }
+
 
     } catch (error) {
       setError('Failed to continue story');
@@ -171,7 +182,7 @@ function StoryPlay() {
     }
   };
 
-  const handleSpecialResponse = (data) => {
+  const handleSpecialResponse = useCallback((data) => {
     switch (data.type) {
       case 'character_list':
         setMessages(prev => [...prev, {
@@ -191,6 +202,34 @@ function StoryPlay() {
         }]);
         break;
 
+      case 'checkpoint_created':
+        setMessages(prev => [...prev, {
+          type: 'system',
+          content: `✅ ${data.message}`,
+          timestamp: new Date()
+        }]);
+        break;
+
+      case 'checkpoint_restored':
+        setMessages(prev => [...prev, {
+          type: 'system',
+          content: `🔄 ${data.message}`,
+          timestamp: new Date()
+        }]);
+        // Reload story to reflect restored state
+        loadStory();
+        break;
+
+      case 'checkpoint_list':
+        setMessages(prev => [...prev, {
+          type: 'system',
+          content: `Available checkpoints:\n${data.checkpoints.map(cp =>
+            `- ${cp.description} (${cp.id}) - ${new Date(cp.timestamp).toLocaleString()} - ${cp.eventCount} events`
+          ).join('\n')}`,
+          timestamp: new Date()
+        }]);
+        break;
+
       case 'info':
         setMessages(prev => [...prev, {
           type: 'system',
@@ -204,20 +243,49 @@ function StoryPlay() {
           type: 'ai',
           content: data.aiResponse,
           timestamp: new Date(),
-          cost: data.cost,
           isTimeout: true
         }]);
         break;
 
-      case 'cost_info':
-        setCostInfo(data);
-        setShowCostDialog(true);
+      
+
+      case 'scene_reset':
+        setMessages(prev => [...prev, {
+          type: 'system',
+          content: `🔄 ${data.message}`,
+          timestamp: new Date()
+        }]);
+
+        // Add the new AI response after the reset
+        if (data.aiResponse) {
+          setMessages(prev => [...prev, {
+            type: 'ai',
+            content: data.aiResponse,
+            timestamp: new Date(),
+            diceResults: []
+          }]);
+        }
+
+        // Update story data
+        if (story) {
+          setStory(prev => ({
+            ...prev,
+            stats: {
+              ...prev.stats,
+              totalInteractions: data.currentChapter
+            },
+            worldState: {
+              ...prev.worldState,
+              currentChapter: data.currentChapter
+            }
+          }));
+        }
         break;
 
       case 'story_ended':
         setMessages(prev => [...prev, {
           type: 'system',
-          content: `Story ended. Final stats: ${data.finalStats.totalInteractions} interactions, $${data.finalStats.totalCost.toFixed(4)} total cost.`,
+          content: `Story ended. Final stats: ${data.finalStats.totalInteractions} interactions.`,
           timestamp: new Date()
         }]);
         break;
@@ -237,7 +305,7 @@ function StoryPlay() {
           timestamp: new Date()
         }]);
     }
-  };
+  }, []);
 
   const handleCommand = (command) => {
     setUserInput(command);
@@ -272,25 +340,9 @@ function StoryPlay() {
             {message.content}
           </Typography>
 
-          {message.diceResults && message.diceResults.length > 0 && (
-            <Box sx={{ mt: 1 }}>
-              {message.diceResults.map((dice, index) => (
-                <Chip
-                  key={index}
-                  icon={<DiceIcon />}
-                  label={`${dice.diceType}: ${dice.result} - ${dice.interpretation}`}
-                  size="small"
-                  sx={{ mr: 1, mb: 1 }}
-                />
-              ))}
-            </Box>
-          )}
 
-          {message.cost && (
-            <Typography variant="caption" sx={{ display: 'block', mt: 1, opacity: 0.7 }}>
-              Cost: ${message.cost.toFixed(4)}
-            </Typography>
-          )}
+
+
 
           <Typography variant="caption" sx={{ display: 'block', mt: 1, opacity: 0.5 }}>
             {message.timestamp.toLocaleTimeString()}
@@ -321,9 +373,7 @@ function StoryPlay() {
               </Typography>
             </Grid>
             <Grid item>
-              <IconButton onClick={() => setShowCostDialog(true)}>
-                <CostIcon />
-              </IconButton>
+              
               <IconButton onClick={() => setShowCommands(!showCommands)}>
                 <InfoIcon />
               </IconButton>
@@ -370,14 +420,7 @@ function StoryPlay() {
               </Button>
             </Grid>
             <Grid item>
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={() => handleCommand('/cost')}
-                startIcon={<CostIcon />}
-              >
-                Cost Info
-              </Button>
+              
             </Grid>
             <Grid item>
               <Button
@@ -394,7 +437,7 @@ function StoryPlay() {
       )}
 
       {/* Messages */}
-      <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+      <Box sx={{ flex: 1, overflow: 'auto', p: 2 }} ref={messagesContainerRef}>
         {messages.map(formatMessage)}
         {loading && (
           <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 2 }}>
@@ -423,7 +466,15 @@ function StoryPlay() {
             fullWidth
             value={userInput}
             onChange={(e) => setUserInput(e.target.value)}
-            placeholder="Type your action, choice, or command..."
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (!loading && userInput.trim()) {
+                  handleSubmit(e);
+                }
+              }
+            }}
+            placeholder="Type your action, choice, or command... (Enter to send, Shift+Enter for new line)"
             disabled={loading}
             inputRef={inputRef}
             multiline
@@ -440,35 +491,7 @@ function StoryPlay() {
         </Box>
       </Paper>
 
-      {/* Cost Dialog */}
-      <Dialog open={showCostDialog} onClose={() => setShowCostDialog(false)}>
-        <DialogTitle>Cost Information</DialogTitle>
-        <DialogContent>
-          {costInfo && (
-            <Box>
-              <Typography variant="body1" gutterBottom>
-                Total Cost: ${costInfo.totalCost?.toFixed(4) || '0.0000'}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Total Interactions: {costInfo.totalInteractions || 0}
-              </Typography>
-              {costInfo.averageCostPerInteraction && (
-                <Typography variant="body2" color="text.secondary">
-                  Average Cost per Interaction: ${costInfo.averageCostPerInteraction.toFixed(4)}
-                </Typography>
-              )}
-              {costInfo.estimatedRemainingCalls && (
-                <Typography variant="body2" color="text.secondary">
-                  Estimated Remaining Calls: {costInfo.estimatedRemainingCalls}
-                </Typography>
-              )}
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowCostDialog(false)}>Close</Button>
-        </DialogActions>
-      </Dialog>
+
     </Box>
   );
 }

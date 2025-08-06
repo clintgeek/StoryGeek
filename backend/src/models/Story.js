@@ -77,8 +77,27 @@ const storyThreadSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+const storySummarySchema = new mongoose.Schema({
+  summary: { type: String, required: true },
+  keywords: {
+    characters: [String],
+    locations: [String],
+    items: [String],
+    concepts: [String],
+    events: [String]
+  },
+  importantDetails: [{
+    type: { type: String, enum: ['character', 'location', 'item', 'concept', 'event'] },
+    name: String,
+    description: String,
+    relevance: { type: String, enum: ['high', 'medium', 'low'], default: 'medium' }
+  }],
+  timestamp: { type: Date, default: Date.now },
+  eventCount: { type: Number, default: 0 }
+});
+
 const storySchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  userId: { type: String, required: true },
   title: { type: String, required: true },
   genre: { type: String, required: true },
   description: { type: String, default: '' },
@@ -86,9 +105,8 @@ const storySchema = new mongoose.Schema({
   // World state
   worldState: {
     setting: { type: String, required: true },
-    currentChapter: { type: Number, default: 1 },
     currentSituation: { type: String, required: true },
-    mood: { type: String, enum: ['dark', 'hopeful', 'tense', 'peaceful', 'mysterious', 'chaotic'], default: 'neutral' },
+    mood: { type: String, enum: ['dark', 'hopeful', 'tense', 'peaceful', 'mysterious', 'chaotic', 'neutral'], default: 'neutral' },
     weather: { type: String, enum: ['stormy', 'clear', 'foggy', 'windy', 'calm', 'rainy'], default: 'clear' },
     timeOfDay: { type: String, enum: ['dawn', 'morning', 'afternoon', 'evening', 'night', 'midnight'], default: 'morning' }
   },
@@ -99,6 +117,24 @@ const storySchema = new mongoose.Schema({
   storyThreads: [storyThreadSchema],
   diceResults: [diceResultSchema],
   events: [storyEventSchema],
+  storySummaries: [storySummarySchema], // Added storySummaries
+
+  // Checkpoints for going back
+  checkpoints: [{
+    id: { type: String, required: true },
+    timestamp: { type: Date, default: Date.now },
+    description: { type: String, default: 'Checkpoint' },
+    events: [storyEventSchema],
+    worldState: {
+      setting: { type: String, required: true },
+      currentSituation: { type: String, required: true },
+      mood: { type: String, enum: ['dark', 'hopeful', 'tense', 'peaceful', 'mysterious', 'chaotic', 'neutral'], default: 'neutral' },
+      weather: { type: String, enum: ['stormy', 'clear', 'foggy', 'windy', 'calm', 'rainy'], default: 'clear' },
+      timeOfDay: { type: String, enum: ['dawn', 'morning', 'afternoon', 'evening', 'night', 'midnight'], default: 'morning' }
+    },
+    characters: [characterSchema],
+    locations: [locationSchema]
+  }],
 
   // AI context management
   aiContext: {
@@ -110,17 +146,38 @@ const storySchema = new mongoose.Schema({
     technologyLevel: { type: String, enum: ['primitive', 'medieval', 'renaissance', 'industrial', 'modern', 'futuristic'], default: 'medieval' }
   },
 
+  // Story state tracking for consistency
+  storyState: {
+    establishedFacts: [{
+      category: { type: String, enum: ['character', 'location', 'event', 'detail'], required: true },
+      fact: { type: String, required: true },
+      source: { type: String, default: 'narrative' }, // 'narrative', 'player', 'dice'
+      timestamp: { type: Date, default: Date.now }
+    }],
+    activeCharacters: [{
+      name: { type: String, required: true },
+      relationship: { type: String, default: '' }, // 'husband', 'brother', 'friend', etc.
+      status: { type: String, default: 'alive' }, // 'alive', 'dead', 'missing'
+      details: { type: String, default: '' }
+    }],
+    currentLocation: {
+      name: { type: String, default: '' },
+      description: { type: String, default: '' },
+      atmosphere: { type: String, default: '' }
+    }
+  },
+
   // Game statistics
   stats: {
     totalInteractions: { type: Number, default: 0 },
     totalDiceRolls: { type: Number, default: 0 },
     averageResponseTime: { type: Number, default: 0 },
-    totalCost: { type: Number, default: 0 },
+
     lastActive: { type: Date, default: Date.now }
   },
 
   // Status
-  status: { type: String, enum: ['active', 'paused', 'completed', 'abandoned'], default: 'active' },
+  status: { type: String, enum: ['active', 'paused', 'completed', 'abandoned', 'setup'], default: 'active' },
 
   // Timestamps
   createdAt: { type: Date, default: Date.now },
@@ -135,7 +192,6 @@ storySchema.pre('save', function(next) {
 
 // Indexes for performance
 storySchema.index({ userId: 1, status: 1 });
-storySchema.index({ 'worldState.currentChapter': 1 });
 storySchema.index({ createdAt: -1 });
 
 // Virtual for active characters
