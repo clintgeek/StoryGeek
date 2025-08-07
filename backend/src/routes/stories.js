@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const storyController = require('../controllers/storyController');
 const aiService = require('../services/aiService');
+const { authenticateToken } = require('../middleware/auth');
 
 // Test AI endpoint (must come before :storyId route)
 router.get('/test-ai', async (req, res) => {
@@ -100,6 +101,9 @@ router.get('/test-together-models', async (req, res) => {
 // Test story continuation debugging
 router.get('/test-debug', storyController.testEndpoint);
 
+// Protected routes - require authentication
+router.use(authenticateToken);
+
 // Start a new story
 router.post('/start', storyController.startStory);
 
@@ -117,5 +121,8 @@ router.get('/:storyId', storyController.getStory);
 
 // Update story status
 router.patch('/:storyId/status', storyController.updateStoryStatus);
+
+// Delete story
+router.delete('/:storyId', storyController.deleteStory);
 
 module.exports = router;

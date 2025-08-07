@@ -1,29 +1,30 @@
 import React, { useState } from 'react';
 import {
   Box,
-  Card,
-  CardContent,
   Typography,
   TextField,
   Button,
+  Card,
+  CardContent,
   Grid,
+  Paper,
   Chip,
   Alert,
   CircularProgress,
-  Paper,
-  Divider,
-  MenuItem,
   FormControl,
   InputLabel,
   Select,
+  MenuItem
 } from '@mui/material';
 import {
-  AutoAwesome as MagicIcon,
-
   Book as BookIcon,
-  Add as AddIcon,
+  Casino as CasinoIcon,
+  Send as SendIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import useSharedAuthStore from '../store/sharedAuthStore';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 const genres = [
   'Fantasy',
@@ -40,47 +41,47 @@ const genres = [
   'Western',
 ];
 
-const storyTemplates = [
-  {
-    name: 'Hero\'s Journey',
-    description: 'A classic adventure where a hero embarks on a quest',
-    genre: 'Fantasy',
-    prompt: 'A young hero discovers they have a special destiny and must embark on a dangerous quest.',
-  },
-  {
-    name: 'Mystery Manor',
-    description: 'A mysterious mansion holds dark secrets',
-    genre: 'Horror',
-    prompt: 'A detective arrives at an old mansion to investigate strange occurrences.',
-  },
-  {
-    name: 'Space Explorer',
-    description: 'Exploring the vast reaches of space',
-    genre: 'Sci-Fi',
-    prompt: 'A space explorer discovers an ancient alien civilization.',
-  },
-  {
-    name: 'Medieval Quest',
-    description: 'A knight\'s journey through a magical realm',
-    genre: 'Fantasy',
-    prompt: 'A knight is tasked with retrieving a powerful artifact from a dangerous realm.',
-  },
-];
-
 function StoryCreation() {
   const navigate = useNavigate();
+  const { user, token } = useSharedAuthStore();
   const [formData, setFormData] = useState({
     title: '',
-    genre: '',
-    description: '',
+    genre: 'Fantasy',
     prompt: '',
+    description: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState(null);
 
+  const storyTemplates = [
+    {
+      name: 'The Chosen One',
+      genre: 'Fantasy',
+      description: 'A young hero discovers their destiny and must save the world.',
+      prompt: 'A young person discovers they are the chosen one destined to save the world from an ancient evil.'
+    },
+    {
+      name: 'Space Explorer',
+      genre: 'Sci-Fi',
+      description: 'An astronaut discovers an abandoned alien ship in deep space.',
+      prompt: 'A space explorer discovers an abandoned alien ship floating in deep space with mysterious technology.'
+    },
+    {
+      name: 'Detective Mystery',
+      genre: 'Mystery',
+      description: 'A detective investigates a series of supernatural crimes.',
+      prompt: 'A detective investigates a series of crimes that seem to have supernatural elements.'
+    },
+    {
+      name: 'Medieval Quest',
+      genre: 'Fantasy',
+      description: 'A knight must protect a village from dark forces.',
+      prompt: 'A knight must protect a village from dark forces while uncovering a conspiracy.'
+    }
+  ];
+
   const handleInputChange = (field) => (event) => {
-    console.log(`Setting ${field} to:`, event.target.value);
     setFormData(prev => ({
       ...prev,
       [field]: event.target.value
@@ -93,7 +94,7 @@ function StoryCreation() {
       ...prev,
       title: template.name,
       genre: template.genre,
-      prompt: template.prompt,
+      prompt: template.prompt
     }));
   };
 
@@ -105,17 +106,25 @@ function StoryCreation() {
       return;
     }
 
+    if (!user || !user.id || !token) {
+      setError('Authentication required');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
     try {
-      // TODO: Call API to create story
-      const response = await fetch('/api/stories', {
+      const response = await fetch(`${API_URL}/stories`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          userId: user.id
+        }),
       });
 
       if (!response.ok) {
@@ -214,7 +223,7 @@ function StoryCreation() {
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                <AddIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                <SendIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
                 Story Details
               </Typography>
 
@@ -273,14 +282,14 @@ function StoryCreation() {
                     <Button
                       variant="outlined"
                       onClick={generateRandomPrompt}
-                      startIcon={<MagicIcon />}
+                      startIcon={<CasinoIcon />}
                       sx={{ mr: 2 }}
                     >
                       Generate Random Prompt
                     </Button>
                     <Button
                       variant="outlined"
-                      startIcon={<DiceIcon />}
+                      startIcon={<CasinoIcon />}
                     >
                       Roll for Inspiration
                     </Button>
@@ -299,7 +308,7 @@ function StoryCreation() {
                   </Grid>
 
                   <Grid item xs={12}>
-                    <Divider sx={{ my: 2 }} />
+                    {/* Removed Divider as it's not in the new_code */}
                     <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
                       <Button
                         variant="outlined"
@@ -311,7 +320,7 @@ function StoryCreation() {
                         type="submit"
                         variant="contained"
                         disabled={loading}
-                        startIcon={loading ? <CircularProgress size={20} /> : <AddIcon />}
+                        startIcon={loading ? <CircularProgress size={20} /> : <SendIcon />}
                       >
                         {loading ? 'Creating Story...' : 'Create Story'}
                       </Button>

@@ -15,33 +15,36 @@ class StoryController {
         return res.status(400).json({ error: 'Story prompt is required' });
       }
 
-      // Generate initial story setup with AI
-      const setupPrompt = `
-        A player wants to start a new story with the following prompt:
-        "${prompt}"
+      // First, generate clarifying questions based on the user's prompt
+      const questionsPrompt = `
+        Based on this story prompt: "${prompt}"
 
         Genre: ${genre || 'Fantasy'}
         Title: ${title || 'Untitled Story'}
 
-        Please help set up this story by asking clarifying questions about:
-        1. Tone and atmosphere
-        2. Level of violence/gore
-        3. Magic system (if fantasy)
-        4. Technology level
-        5. Main character details
-        6. Starting location
-        7. Any specific story elements they want to include
+        Ask 2-3 specific clarifying questions that will help create a more detailed and engaging opening scene.
+        Focus on:
+        - Character details (if not specified)
+        - Setting specifics (time period, location details)
+        - Tone and atmosphere
+        - Initial conflict or situation
 
-        Ask 3-5 specific questions to help establish the world and story direction.
-        Be conversational and helpful.
+        Format your response as a simple list of questions, one per line.
+        Keep questions concise and specific.
       `;
 
-      const aiResponse = await aiService.generateStoryResponse(
+      // Extract user's token from request headers
+      const authHeader = req.headers['authorization'];
+      const userToken = authHeader && authHeader.split(' ')[1];
+
+      const questionsResponse = await aiService.generateStoryResponse(
         { title: title || 'Untitled', genre: genre || 'Fantasy' },
-        setupPrompt
+        questionsPrompt,
+        null,
+        userToken
       );
 
-      // Create initial story structure
+      // Create story with initial setup state
       const story = new Story({
         userId,
         title: title || 'Untitled Story',
@@ -55,28 +58,38 @@ class StoryController {
           timeOfDay: 'morning'
         },
         aiContext: {
-          lastPrompt: setupPrompt,
+          lastPrompt: prompt,
           worldRules: '',
           storyTone: 'adventure',
           magicSystem: '',
           technologyLevel: 'medieval'
         },
-        status: 'setup',
+        status: 'setup', // Changed to 'setup' to indicate we're in setup phase
         stats: {
           totalInteractions: 0,
           totalDiceRolls: 0,
-
           lastActive: new Date()
-        }
+        },
+        // Add the clarifying questions as the first event
+        events: [{
+          type: 'narrative',
+          description: `Story Setup: ${prompt}\n\nClarifying Questions:\n${questionsResponse.content}`,
+          characters: [],
+          locations: [],
+          diceResults: [],
+          playerChoices: [],
+          timestamp: new Date()
+        }]
       });
 
       await story.save();
 
       res.json({
         storyId: story._id,
-        aiResponse: aiResponse.content,
-        setupQuestions: aiResponse.content,
-        cost: aiResponse.cost
+        aiResponse: questionsResponse.content,
+        setupQuestions: questionsResponse.content,
+        status: 'setup',
+        needsClarification: true
       });
 
     } catch (error) {
@@ -468,7 +481,12 @@ class StoryController {
 
           // Generate a new AI response for the reset scene
           console.log('Generating new AI response for reset scene...');
-          const aiResponse = await aiService.generateStoryResponse(story, 'Continue the story from this new situation', null);
+
+          // Extract user's token from request headers
+          const authHeader = req.headers['authorization'];
+          const userToken = authHeader && authHeader.split(' ')[1];
+
+          const aiResponse = await aiService.generateStoryResponse(story, 'Continue the story from this new situation', null, userToken);
 
           // Add the AI response as an event
           const newEvent = {
@@ -503,37 +521,68 @@ class StoryController {
       if (story.status === 'setup') {
         console.log('Handling setup phase');
         try {
-          // Generate AI response for setup questions
-          const aiResponse = await aiService.generateStoryResponse(story, userInput);
+          // Check if this is the first response to clarifying questions
+          const isFirstResponse = story.events.length === 1;
 
-          // Update story with setup response
-          const newEvent = {
-            type: 'narrative',
-            description: aiResponse.content,
-            timestamp: new Date()
-          };
+          if (isFirstResponse) {
+            // User is responding to clarifying questions - generate opening scene
+            const openingPrompt = `
+              Based on the original prompt and the user's answers to the clarifying questions,
+              create an engaging opening scene for the story.
 
-          story.events.push(newEvent);
-          story.stats.totalInteractions++;
-          story.stats.lastActive = new Date();
+              Original Prompt: ${story.aiContext.lastPrompt}
+              User's Answers: ${userInput}
 
-          // Check if setup is complete (AI indicates story can begin)
-          const setupComplete = aiResponse.content.toLowerCase().includes('let\'s begin') ||
-                               aiResponse.content.toLowerCase().includes('story begins') ||
-                               aiResponse.content.toLowerCase().includes('adventure starts') ||
-                               aiResponse.content.toLowerCase().includes('let\'s start the story');
+              Write a compelling opening paragraph that:
+              1. Establishes the setting and atmosphere
+              2. Introduces the main character or situation
+              3. Creates intrigue and hooks the reader
+              4. Sets up the initial conflict or situation
+              5. Uses descriptive language appropriate for the genre
 
-          if (setupComplete) {
+              Make it feel like the beginning of an exciting adventure. Be descriptive and immersive.
+              End with a natural stopping point that invites the player to continue the story.
+            `;
+
+            // Extract user's token from request headers
+            const authHeader = req.headers['authorization'];
+            const userToken = authHeader && authHeader.split(' ')[1];
+
+            const aiResponse = await aiService.generateStoryResponse(story, openingPrompt, null, userToken);
+
+            // Update story to active status
             story.status = 'active';
             story.worldState.currentSituation = 'Story has begun';
+
+            // Add the opening scene as an event
+            const openingEvent = {
+              type: 'narrative',
+              description: aiResponse.content,
+              timestamp: new Date(),
+              characters: [],
+              locations: [],
+              diceResults: [],
+              playerChoices: []
+            };
+
+            story.events.push(openingEvent);
+            story.stats.totalInteractions++;
+            story.stats.lastActive = new Date();
+
+            await story.save();
+
+            return res.json({
+              aiResponse: aiResponse.content,
+              status: 'active',
+              storyStarted: true
+            });
+          } else {
+            // This shouldn't happen in normal flow, but handle gracefully
+            return res.json({
+              type: 'error',
+              message: 'Setup phase error. Please try creating a new story.'
+            });
           }
-
-          await story.save();
-
-          return res.json({
-            aiResponse: aiResponse.content,
-            status: story.status
-          });
         } catch (error) {
           console.error('Error in setup phase:', error);
           return res.status(500).json({ error: 'Failed to process setup' });
@@ -600,7 +649,12 @@ class StoryController {
       console.log('Building optimized context...');
       const context = await contextService.buildContext(story, userInput, diceResult);
       console.log('Generating AI response...');
-      const aiResponse = await aiService.generateStoryResponse(story, userInput, diceResult);
+
+      // Extract user's token from request headers
+      const authHeader = req.headers['authorization'];
+      const userToken = authHeader && authHeader.split(' ')[1];
+
+      const aiResponse = await aiService.generateStoryResponse(story, userInput, diceResult, userToken);
 
       // Extract and save tags from AI response
       const tags = tagService.extractTags(aiResponse.content, storyId, 'narrative');
@@ -718,7 +772,12 @@ class StoryController {
       console.log('Context built successfully');
 
       console.log('Testing aiService...');
-      const aiResponse = await aiService.generateStoryResponse(testStory, 'test');
+
+      // Extract user's token from request headers
+      const authHeader = req.headers['authorization'];
+      const userToken = authHeader && authHeader.split(' ')[1];
+
+      const aiResponse = await aiService.generateStoryResponse(testStory, 'test', null, userToken);
       console.log('AI response generated successfully');
 
       res.json({
@@ -790,6 +849,30 @@ class StoryController {
     } catch (error) {
       console.error('Error updating story status:', error);
       res.status(500).json({ error: 'Failed to update story status' });
+    }
+  }
+
+  // Delete story
+  async deleteStory(req, res) {
+    try {
+      const { storyId } = req.params;
+
+      const story = await Story.findById(storyId);
+      if (!story) {
+        return res.status(404).json({ error: 'Story not found' });
+      }
+
+      // Check if user owns this story
+      if (story.userId !== req.user._id) {
+        return res.status(403).json({ error: 'Not authorized to delete this story' });
+      }
+
+      await Story.findByIdAndDelete(storyId);
+
+      res.json({ message: 'Story deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting story:', error);
+      res.status(500).json({ error: 'Failed to delete story' });
     }
   }
 

@@ -1,6 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const Story = require('../models/Story');
+const { authenticateToken } = require('../middleware/auth');
+
+// Protected routes - require authentication
+router.use(authenticateToken);
 
 // Get all characters for a story
 router.get('/story/:storyId', async (req, res) => {

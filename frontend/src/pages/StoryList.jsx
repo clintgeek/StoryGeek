@@ -1,55 +1,81 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box,
-  Card,
-  CardContent,
   Typography,
   Button,
-  TextField,
+  Card,
+  CardContent,
   Grid,
   Chip,
-  Alert,
-  CircularProgress,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  IconButton,
-  Paper,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
   MenuItem,
+  Alert,
+  CircularProgress,
+  IconButton,
+  Tooltip
 } from '@mui/material';
 import {
   Add as AddIcon,
   PlayArrow as PlayIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-
-
+  Book as BookIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import useSharedAuthStore from '../store/sharedAuthStore';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 function StoryList() {
   const navigate = useNavigate();
+  const { user, token } = useSharedAuthStore();
   const [stories, setStories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [showStartDialog, setShowStartDialog] = useState(false);
+  const [openDialog, setOpenDialog] = useState(false);
   const [startForm, setStartForm] = useState({
     prompt: '',
     title: '',
     genre: 'Fantasy'
   });
   const [creatingStory, setCreatingStory] = useState(false);
+  const [deletingStory, setDeletingStory] = useState(false);
+  const [storyToDelete, setStoryToDelete] = useState(null);
 
   useEffect(() => {
-    loadStories();
-  }, []);
+    console.log('StoryList useEffect - user:', user);
+    if (user && user.id) {
+      console.log('Loading stories for user:', user.id);
+      loadStories();
+    } else if (user === null) {
+      // User is not authenticated, don't load stories
+      setLoading(false);
+    } else {
+      console.log('User object missing id:', user);
+    }
+  }, [user]);
 
   const loadStories = async () => {
     try {
-      // TODO: Replace with actual user ID from auth
-      const userId = 'temp-user-id';
-      const response = await fetch(`/api/stories/user/${userId}`);
+      if (!user || !user.id || !token) {
+        setError('Authentication required');
+        setLoading(false);
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/stories/user/${user.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        }
+      });
 
       if (!response.ok) {
         throw new Error('Failed to load stories');
@@ -71,17 +97,23 @@ function StoryList() {
       return;
     }
 
+    if (!user || !user.id || !token) {
+      setError('Authentication required');
+      return;
+    }
+
     setCreatingStory(true);
     setError('');
 
     try {
-      const response = await fetch('/api/stories/start', {
+      const response = await fetch(`${API_URL}/stories/start`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
-          userId: 'temp-user-id', // TODO: Get from auth
+          userId: user.id,
           prompt: startForm.prompt,
           title: startForm.title || 'Untitled Story',
           genre: startForm.genre,
@@ -105,6 +137,40 @@ function StoryList() {
     }
   };
 
+  const handleDeleteStory = async (storyId) => {
+    if (!user || !user.id || !token) {
+      setError('Authentication required');
+      return;
+    }
+
+    setDeletingStory(true);
+    setError('');
+
+    try {
+      const response = await fetch(`${API_URL}/stories/${storyId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete story');
+      }
+
+      // Reload stories after successful deletion
+      await loadStories();
+      setStoryToDelete(null);
+
+    } catch (error) {
+      setError('Failed to delete story');
+      console.error('Error deleting story:', error);
+    } finally {
+      setDeletingStory(false);
+    }
+  };
+
   const handleInputChange = (field) => (event) => {
     setStartForm(prev => ({
       ...prev,
@@ -119,6 +185,7 @@ function StoryList() {
   const getStatusColor = (status) => {
     switch (status) {
       case 'active': return 'success';
+      case 'setup': return 'warning';
       case 'paused': return 'warning';
       case 'completed': return 'info';
       case 'abandoned': return 'error';
@@ -155,7 +222,7 @@ function StoryList() {
         <Button
           variant="contained"
           startIcon={<AddIcon />}
-          onClick={() => setShowStartDialog(true)}
+          onClick={() => setOpenDialog(true)}
         >
           Start New Story
         </Button>
@@ -179,7 +246,7 @@ function StoryList() {
             <Button
               variant="contained"
               startIcon={<AddIcon />}
-              onClick={() => setShowStartDialog(true)}
+              onClick={() => setOpenDialog(true)}
             >
               Start Your First Story
             </Button>
@@ -230,7 +297,12 @@ function StoryList() {
                     <IconButton size="small">
                       <EditIcon />
                     </IconButton>
-                    <IconButton size="small" color="error">
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => setStoryToDelete(story)}
+                      disabled={deletingStory}
+                    >
                       <DeleteIcon />
                     </IconButton>
                   </Box>
@@ -243,8 +315,8 @@ function StoryList() {
 
       {/* Start Story Dialog */}
       <Dialog
-        open={showStartDialog}
-        onClose={() => setShowStartDialog(false)}
+        open={openDialog}
+        onClose={() => setOpenDialog(false)}
         maxWidth="md"
         fullWidth
       >
@@ -309,7 +381,7 @@ function StoryList() {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowStartDialog(false)}>
+          <Button onClick={() => setOpenDialog(false)}>
             Cancel
           </Button>
           <Button
@@ -319,6 +391,38 @@ function StoryList() {
             startIcon={creatingStory ? <CircularProgress size={20} /> : <AddIcon />}
           >
             {creatingStory ? 'Creating Story...' : 'Start Story'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={!!storyToDelete}
+        onClose={() => setStoryToDelete(null)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Delete Story</DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" sx={{ mb: 2 }}>
+            Are you sure you want to delete "{storyToDelete?.title}"?
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            This action cannot be undone. All story progress, characters, and events will be permanently lost.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setStoryToDelete(null)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => handleDeleteStory(storyToDelete?._id)}
+            variant="contained"
+            color="error"
+            disabled={deletingStory}
+            startIcon={deletingStory ? <CircularProgress size={20} /> : <DeleteIcon />}
+          >
+            {deletingStory ? 'Deleting...' : 'Delete Story'}
           </Button>
         </DialogActions>
       </Dialog>

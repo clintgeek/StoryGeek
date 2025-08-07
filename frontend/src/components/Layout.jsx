@@ -15,6 +15,9 @@ import {
   useMediaQuery,
   Container,
   Divider,
+  Menu,
+  MenuItem,
+  Avatar,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -25,8 +28,11 @@ import {
   DarkMode as DarkModeIcon,
   LightMode as LightModeIcon,
   AutoStories as AutoStoriesIcon,
+  Logout as LogoutIcon,
+  AccountCircle as AccountIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
+import useSharedAuthStore from '../store/sharedAuthStore';
 
 const drawerWidth = 220;
 
@@ -44,8 +50,10 @@ function Layout({ children, onThemeToggle, isDarkMode }) {
   const theme = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, logout } = useSharedAuthStore();
 
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState(null);
 
   // Check if we're in a story context (play or characters route)
   const isInStoryContext = location.pathname.startsWith('/play/') || location.pathname.startsWith('/characters/');
@@ -54,7 +62,21 @@ function Layout({ children, onThemeToggle, isDarkMode }) {
   const menuItems = isInStoryContext ? [...baseMenuItems, ...storyMenuItems] : baseMenuItems;
 
   const handleDrawerToggle = () => {
-    setDrawerOpen(!drawerOpen);
+    setMobileOpen(!mobileOpen);
+  };
+
+  const handleMenuOpen = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+    handleMenuClose();
   };
 
   const handleNavigation = (path) => {
@@ -70,8 +92,9 @@ function Layout({ children, onThemeToggle, isDarkMode }) {
       navigate(path);
     }
 
-    // Close drawer after navigation
-    setDrawerOpen(false);
+    if (isMobile) {
+      setMobileOpen(false);
+    }
   };
 
   const drawer = (
@@ -149,26 +172,64 @@ function Layout({ children, onThemeToggle, isDarkMode }) {
             </Typography>
           </Box>
 
-          {/* Theme Toggle */}
-          <IconButton
-            onClick={onThemeToggle}
-            color="inherit"
-            sx={{
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              '&:hover': {
-                backgroundColor: 'rgba(255, 255, 255, 0.2)',
-              }
-            }}
-          >
-            {isDarkMode ? <LightModeIcon /> : <DarkModeIcon />}
-          </IconButton>
+          {/* Right side actions */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {/* Theme Toggle */}
+            <IconButton
+              onClick={onThemeToggle}
+              color="inherit"
+              sx={{
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                }
+              }}
+            >
+              {isDarkMode ? <LightModeIcon /> : <DarkModeIcon />}
+            </IconButton>
+
+            {/* User Menu */}
+            <IconButton
+              onClick={handleMenuOpen}
+              color="inherit"
+            >
+              <Avatar sx={{ width: 32, height: 32, bgcolor: 'rgba(255, 255, 255, 0.2)' }}>
+                <AccountIcon />
+              </Avatar>
+            </IconButton>
+
+            {/* User Menu */}
+            <Menu
+              anchorEl={anchorEl}
+              open={Boolean(anchorEl)}
+              onClose={handleMenuClose}
+              PaperProps={{
+                sx: {
+                  backgroundColor: 'background.paper',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  mt: 1,
+                },
+              }}
+            >
+              <MenuItem onClick={handleMenuClose}>
+                <AccountIcon sx={{ mr: 1 }} />
+                {user?.username || 'User'}
+              </MenuItem>
+              <Divider />
+              <MenuItem onClick={handleLogout}>
+                <LogoutIcon sx={{ mr: 1 }} />
+                Logout
+              </MenuItem>
+            </Menu>
+          </Box>
         </Toolbar>
       </AppBar>
 
       {/* Navigation Drawer - Temporary overlay */}
       <Drawer
         variant="temporary"
-        open={drawerOpen}
+        open={mobileOpen}
         onClose={handleDrawerToggle}
         ModalProps={{
           keepMounted: true, // Better open performance on mobile.

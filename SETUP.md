@@ -5,17 +5,11 @@
 Create a `.env` file in the StoryGeek root directory with the following variables:
 
 ```bash
-# AI API Keys (Required)
-CLAUDE_API_KEY=your_claude_api_key_here
-GROQ_API_KEY=your_groq_api_key_here
-GEMINI_API_KEY=your_gemini_api_key_here
-TOGETHER_API_KEY=your_together_api_key_here
-
-# JWT Secret (for future baseGeek integration)
-JWT_SECRET=your_jwt_secret_here
-
-# BaseGeek Integration
+# baseGeek Integration (Required)
 BASEGEEK_URL=https://basegeek.clintgeek.com
+
+# JWT Secret (for authentication)
+JWT_SECRET=your_jwt_secret_here
 
 # Frontend URL
 FRONTEND_URL=http://localhost:3000
@@ -24,34 +18,37 @@ FRONTEND_URL=http://localhost:3000
 NODE_ENV=development
 ```
 
-## Getting API Keys
+## Testing the Integration
 
-### Claude 3 Haiku (Primary - Recommended)
-1. Sign up at: https://console.anthropic.com/
-2. Go to "API Keys" section
-3. Generate a new API key
-4. Copy the key (starts with `sk-ant-`)
+To test that StoryGeek is properly connected to baseGeek's AI service:
 
-### Groq (Fast Fallback)
-1. Sign up at: https://console.groq.com/
-2. Navigate to "API Keys"
-3. Generate a new key
+```bash
+cd StoryGeek/backend
+node test-ai-integration.js
+```
 
-### Gemini 1.5 Flash (Alternative)
-1. Sign up at: https://aistudio.google.com/
-2. Go to "Get API key"
-3. Create a new API key
+This will test story generation and summary creation, and you can verify the usage appears in baseGeek's AI management dashboard.
 
-### Together AI (Gaming-Friendly - Recommended)
-1. Sign up at: https://together.ai/
-2. Go to "API Keys" section
-3. Generate a new API key
-4. **Much less ethical restrictions** - perfect for gaming!
+## Authentication
+
+StoryGeek uses the user's existing JWT token for authentication with baseGeek. No separate API key is needed. The system automatically:
+
+1. **Extracts the user's token** from request headers
+2. **Passes it to baseGeek** for AI calls
+3. **Tracks usage** by user and app in baseGeek's dashboard
+
+### AI Provider Options in baseGeek
+
+- **Claude 3.5 Sonnet** (Primary - Recommended)
+- **Groq Llama 3.1** (Fast Fallback)
+- **Gemini 1.5 Flash** (Alternative)
+
+All AI providers are managed centrally in baseGeek for cost control and consistency.
 
 ## Quick Start
 
-1. **Get your Claude API key** (5 minutes)
-2. **Create `.env` file** with your API key
+1. **Get your baseGeek API key** (5 minutes)
+2. **Create `.env` file** with your baseGeek API key
 3. **Run the app:**
    ```bash
    cd StoryGeek

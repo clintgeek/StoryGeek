@@ -7,9 +7,7 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
-const authRoutes = require('./routes/auth');
 const storyRoutes = require('./routes/stories');
-
 const characterRoutes = require('./routes/characters');
 
 const app = express();
@@ -45,9 +43,7 @@ mongoose.connect(process.env.DB_URI, {
 .catch(err => console.error('MongoDB connection error:', err));
 
 // Routes
-app.use('/api/auth', authRoutes);
 app.use('/api/stories', storyRoutes);
-
 app.use('/api/characters', characterRoutes);
 
 // Health check

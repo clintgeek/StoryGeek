@@ -1,91 +1,78 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
-  Card,
-  CardContent,
   Typography,
   TextField,
   Button,
   Paper,
-  Chip,
-  Alert,
   CircularProgress,
+  Alert,
+  Chip,
   IconButton,
+  Tooltip,
   Divider,
-  Grid,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
+  Grid
 } from '@mui/material';
 import {
   Send as SendIcon,
-  Info as InfoIcon,
-  Person as PersonIcon,
-  Pause as PauseIcon,
-  PlayArrow as PlayIcon,
+  Casino as CasinoIcon,
+  Refresh as RefreshIcon,
+  Save as SaveIcon,
+  Bookmark as BookmarkIcon
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
+import useSharedAuthStore from '../store/sharedAuthStore';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 function StoryPlay() {
   const { storyId } = useParams();
   const navigate = useNavigate();
-  const messagesEndRef = useRef(null);
-  const inputRef = useRef(null);
-  const messagesContainerRef = useRef(null);
-
+  const { user, token } = useSharedAuthStore();
+  const [story, setStory] = useState(null);
   const [messages, setMessages] = useState([]);
   const [userInput, setUserInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [story, setStory] = useState(null);
   const [error, setError] = useState('');
   const [showCommands, setShowCommands] = useState(false);
+  const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
 
-
-  // Scroll to top of new AI responses
-  const scrollToTopOfNewResponse = () => {
-    if (messagesContainerRef.current) {
-      const container = messagesContainerRef.current;
-      const lastMessage = container.lastElementChild;
-      if (lastMessage) {
-        lastMessage.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }
-  };
-
-  // Scroll to bottom when user sends a message
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  useEffect(() => {
-    // Only scroll to bottom for user messages, scroll to top for AI responses
-    if (messages.length > 0 && messages[messages.length - 1].type === 'ai') {
-      scrollToTopOfNewResponse();
-    } else if (messages.length > 0 && messages[messages.length - 1].type === 'user') {
-      scrollToBottom();
+  const scrollToTopOfNewResponse = () => {
+    const messageContainer = document.getElementById('message-container');
+    if (messageContainer) {
+      messageContainer.scrollTop = messageContainer.scrollHeight;
     }
+  };
+
+  useEffect(() => {
+    scrollToBottom();
   }, [messages]);
 
-  // Maintain input focus after AI responses
   useEffect(() => {
-    if (!loading && inputRef.current) {
-      // Small delay to ensure the component has finished rendering
-      const timer = setTimeout(() => {
-        inputRef.current?.focus();
-      }, 100);
-      return () => clearTimeout(timer);
+    if (user && user.id) {
+      loadStory();
     }
-  }, [loading, messages.length]);
-
-  // Load story on component mount
-  useEffect(() => {
-    loadStory();
-  }, [storyId]);
+  }, [storyId, user]);
 
   const loadStory = async () => {
     try {
-      const response = await fetch(`/api/stories/${storyId}`);
+      if (!user || !user.id || !token) {
+        setError('Authentication required');
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/stories/${storyId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        }
+      });
+
       if (!response.ok) {
         throw new Error('Failed to load story');
       }
@@ -129,10 +116,11 @@ function StoryPlay() {
     setError('');
 
     try {
-      const response = await fetch(`/api/stories/${storyId}/continue`, {
+      const response = await fetch(`${API_URL}/stories/${storyId}/continue`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           userInput: input
@@ -162,17 +150,15 @@ function StoryPlay() {
       setMessages(prev => [...prev, aiMessage]);
 
       // Update story data
-              if (story) {
-          setStory(prev => ({
-            ...prev,
-            stats: {
-              ...prev.stats,
-              totalInteractions: data.totalInteractions
-            }
-          }));
-        }
-
-
+      if (story) {
+        setStory(prev => ({
+          ...prev,
+          stats: {
+            ...prev.stats,
+            totalInteractions: data.totalInteractions
+          }
+        }));
+      }
 
     } catch (error) {
       setError('Failed to continue story');
@@ -182,7 +168,7 @@ function StoryPlay() {
     }
   };
 
-  const handleSpecialResponse = useCallback((data) => {
+  const handleSpecialResponse = (data) => {
     switch (data.type) {
       case 'character_list':
         setMessages(prev => [...prev, {
@@ -247,7 +233,7 @@ function StoryPlay() {
         }]);
         break;
 
-      
+
 
       case 'scene_reset':
         setMessages(prev => [...prev, {
@@ -305,7 +291,7 @@ function StoryPlay() {
           timestamp: new Date()
         }]);
     }
-  }, []);
+  };
 
   const handleCommand = (command) => {
     setUserInput(command);
@@ -363,24 +349,12 @@ function StoryPlay() {
   return (
     <Box sx={{ height: 'calc(100vh - 120px)', display: 'flex', flexDirection: 'column' }}>
       {/* Story Header */}
-      <Card sx={{ mb: 2 }}>
-        <CardContent>
-          <Grid container alignItems="center" spacing={2}>
-            <Grid item xs>
-              <Typography variant="h5">{story.title}</Typography>
-              <Typography variant="body2" color="text.secondary">
-                {story.genre} • Chapter {story.worldState.currentChapter} • {story.status}
-              </Typography>
-            </Grid>
-            <Grid item>
-              
-              <IconButton onClick={() => setShowCommands(!showCommands)}>
-                <InfoIcon />
-              </IconButton>
-            </Grid>
-          </Grid>
-        </CardContent>
-      </Card>
+      <Box sx={{ mb: 2 }}>
+        <Typography variant="h5">{story.title}</Typography>
+        <Typography variant="body2" color="text.secondary">
+          {story.genre} • Chapter {story.worldState.currentChapter} • {story.status}
+        </Typography>
+      </Box>
 
       {/* Commands Panel */}
       {showCommands && (
@@ -420,7 +394,7 @@ function StoryPlay() {
               </Button>
             </Grid>
             <Grid item>
-              
+
             </Grid>
             <Grid item>
               <Button
@@ -437,7 +411,7 @@ function StoryPlay() {
       )}
 
       {/* Messages */}
-      <Box sx={{ flex: 1, overflow: 'auto', p: 2 }} ref={messagesContainerRef}>
+      <Box sx={{ flex: 1, overflow: 'auto', p: 2 }} ref={messagesEndRef} id="message-container">
         {messages.map(formatMessage)}
         {loading && (
           <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 2 }}>

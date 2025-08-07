@@ -6,11 +6,14 @@ import { QueryClient, QueryClientProvider } from 'react-query';
 
 // Components
 import Layout from './components/Layout';
+import RequireAuth from './components/RequireAuth';
+import SharedAuthProvider from './components/SharedAuthProvider';
 import StoryCreation from './pages/StoryCreation';
 import StoryPlay from './pages/StoryPlay';
 import StoryList from './pages/StoryList';
 import CharacterSheet from './pages/CharacterSheet';
 import Settings from './pages/Settings';
+import LoginPage from './pages/LoginPage';
 
 // Theme
 import { lightTheme, darkTheme } from './theme/theme';
@@ -49,15 +52,46 @@ function App() {
       <ThemeProvider theme={currentTheme}>
         <CssBaseline />
         <Router>
-          <Layout onThemeToggle={handleThemeToggle} isDarkMode={isDarkMode}>
+          <SharedAuthProvider app="storygeek">
             <Routes>
-              <Route path="/" element={<StoryList />} />
-              <Route path="/create" element={<StoryCreation />} />
-              <Route path="/play/:storyId" element={<StoryPlay />} />
-              <Route path="/characters/:storyId" element={<CharacterSheet />} />
-              <Route path="/settings" element={<Settings />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/" element={
+                <RequireAuth>
+                  <Layout onThemeToggle={handleThemeToggle} isDarkMode={isDarkMode}>
+                    <StoryList />
+                  </Layout>
+                </RequireAuth>
+              } />
+              <Route path="/create" element={
+                <RequireAuth>
+                  <Layout onThemeToggle={handleThemeToggle} isDarkMode={isDarkMode}>
+                    <StoryCreation />
+                  </Layout>
+                </RequireAuth>
+              } />
+              <Route path="/play/:storyId" element={
+                <RequireAuth>
+                  <Layout onThemeToggle={handleThemeToggle} isDarkMode={isDarkMode}>
+                    <StoryPlay />
+                  </Layout>
+                </RequireAuth>
+              } />
+              <Route path="/characters/:storyId" element={
+                <RequireAuth>
+                  <Layout onThemeToggle={handleThemeToggle} isDarkMode={isDarkMode}>
+                    <CharacterSheet />
+                  </Layout>
+                </RequireAuth>
+              } />
+              <Route path="/settings" element={
+                <RequireAuth>
+                  <Layout onThemeToggle={handleThemeToggle} isDarkMode={isDarkMode}>
+                    <Settings />
+                  </Layout>
+                </RequireAuth>
+              } />
             </Routes>
-          </Layout>
+          </SharedAuthProvider>
         </Router>
       </ThemeProvider>
     </QueryClientProvider>
