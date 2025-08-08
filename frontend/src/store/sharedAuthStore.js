@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://basegeek.clintgeek.com/api';
+const API_URL = 'https://basegeek.clintgeek.com/api';
 
 const useSharedAuthStore = create(
     persist(
