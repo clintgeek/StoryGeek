@@ -8,6 +8,7 @@ const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const storyRoutes = require('./routes/stories');
+const exportRoutes = require('./routes/export');
 const characterRoutes = require('./routes/characters');
 
 const app = express();
@@ -73,6 +74,7 @@ mongoose.connect(process.env.DB_URI, {
 
 // Routes
 app.use('/api/stories', storyRoutes);
+app.use('/api/export', exportRoutes);
 app.use('/api/characters', characterRoutes);
 
 // Health check

@@ -10,6 +10,10 @@ class AIService {
       totalTokens: 0,
       totalCost: 0
     };
+
+    // Enforce free-only usage by default for StoryGeek
+    // Set STORYGEEK_FREE_ONLY=false to disable
+    this.freeOnly = process.env.STORYGEEK_FREE_ONLY !== 'false';
   }
 
   /**
@@ -30,9 +34,17 @@ class AIService {
         throw new Error('No authentication token available');
       }
 
+      // If free-only is enabled, override provider/model with a free pick
+      let finalConfig = { ...configWithApp };
+      if (this.freeOnly) {
+        const freePick = await this.pickFreeProviderModel(userToken);
+        finalConfig.provider = freePick.provider;
+        finalConfig.model = freePick.model;
+      }
+
       const response = await axios.post(`${this.baseGeekUrl}/api/ai/call`, {
         prompt,
-        config: configWithApp
+        config: finalConfig
       }, {
         headers: {
           'Content-Type': 'application/json',
@@ -428,6 +440,84 @@ As the Game Master, respond to the player's input by advancing the story within 
   logApiKeyStatus() {
     console.log('StoryGeek AI service using centralized baseGeek AI APIs');
     console.log('API key status and configuration managed in baseGeek');
+  }
+
+  /**
+   * Ask baseGeek's AI Director for a provider/model recommendation
+   * priority defaults to 'cost' to prefer free/cheapest models
+   */
+  async recommendProviderModel(taskDescription, priority = 'cost', requirements = {}, userToken = null) {
+    const authToken = userToken || this.jwtToken;
+    if (!authToken) throw new Error('No authentication token available');
+
+    try {
+      const response = await axios.post(`${this.baseGeekUrl}/api/ai/director/recommend`, {
+        task: taskDescription,
+        priority,
+        requirements
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        timeout: 20000
+      });
+
+      if (response.data?.success && Array.isArray(response.data.data?.recommendations)) {
+        const rec = response.data.data.recommendations[0];
+        if (rec?.provider && rec?.model?.id) {
+          return { provider: rec.provider, model: rec.model.id };
+        }
+      }
+      // Fallback to current provider defaults
+      return { provider: this.currentProvider, model: this.providers[this.currentProvider]?.model };
+    } catch (error) {
+      console.warn('AI Director recommend failed, falling back to defaults:', error.message);
+      return { provider: this.currentProvider, model: this.providers[this.currentProvider]?.model };
+    }
+  }
+
+  /** Fetch aiDirector comprehensive models */
+  async getDirectorModels(userToken = null) {
+    const authToken = userToken || this.jwtToken;
+    if (!authToken) throw new Error('No authentication token available');
+    const response = await axios.get(`${this.baseGeekUrl}/api/ai/director/models`, {
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      },
+      timeout: 20000
+    });
+    if (!response.data?.success) throw new Error('Failed to fetch director models');
+    return response.data.data;
+  }
+
+  /** Return an array of free-capable { provider, modelId } tuples */
+  async getFreeProviderModels(userToken = null) {
+    const data = await this.getDirectorModels(userToken);
+    const result = [];
+    const providers = data.providers || {};
+    for (const [providerName, info] of Object.entries(providers)) {
+      if (!info.isEnabled || !info.hasApiKey) continue;
+      for (const model of info.models || []) {
+        if (model.freeTier?.isFree) {
+          result.push({ provider: providerName, model: model.id });
+        }
+      }
+    }
+    return result;
+  }
+
+  /** Pick a free model or throw if none available */
+  async pickFreeProviderModel(userToken = null) {
+    const freeList = await this.getFreeProviderModels(userToken);
+    if (freeList.length === 0) {
+      throw new Error('No free AI models available. Please try again later.');
+    }
+    // Simple deterministic pick: prefer groq, then together, else first
+    const preferred = freeList.find(m => m.provider === 'groq')
+      || freeList.find(m => m.provider === 'together')
+      || freeList[0];
+    return preferred;
   }
 }
 

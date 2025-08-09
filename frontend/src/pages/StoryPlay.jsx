@@ -11,7 +11,12 @@ import {
   IconButton,
   Tooltip,
   Divider,
-  Grid
+  Grid,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  LinearProgress
 } from '@mui/material';
 import {
   Send as SendIcon,
@@ -37,6 +42,10 @@ function StoryPlay() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showCommands, setShowCommands] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportData, setExportData] = useState(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -96,6 +105,44 @@ function StoryPlay() {
       setError('Failed to load story');
       console.error('Error loading story:', error);
     }
+  };
+
+  const handleBookify = async () => {
+    if (!storyId || !token) return;
+    setExporting(true);
+    setExportError('');
+    setExportOpen(true);
+    try {
+      const res = await fetch(`${API_URL}/export/stories/${storyId}/bookify`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (!res.ok) throw new Error('Failed to bookify story');
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error?.message || 'Bookify failed');
+      setExportData(json.data);
+    } catch (e) {
+      setExportError(e.message || 'Bookify failed');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleDownloadTxt = () => {
+    if (!exportData) return;
+    const blob = new Blob([exportData.content || ''], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const safeTitle = (exportData.title || 'story').replace(/[^a-z0-9\-_]+/gi, '_');
+    a.href = url;
+    a.download = `${safeTitle}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   };
 
   const handleSubmit = async (e) => {
@@ -385,10 +432,52 @@ function StoryPlay() {
     <Box sx={{ height: 'calc(100vh - 120px)', display: 'flex', flexDirection: 'column' }}>
       {/* Story Header */}
       <Box sx={{ mb: 2 }}>
-        <Typography variant="h5">{story.title}</Typography>
-        <Typography variant="body2" color="text.secondary">
-          {story.genre} • Chapter {story.worldState.currentChapter} • {story.status}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+          <Box>
+            <Typography variant="h5">{story.title}</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {story.genre} • Chapter {story.worldState.currentChapter} • {story.status}
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button variant="outlined" onClick={handleBookify} disabled={exporting}>
+              {exporting ? 'Bookifying…' : 'Bookify (Free)'}
+            </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={async () => {
+                if (!storyId || !token) return;
+                setExporting(true);
+                try {
+                  const res = await fetch(`${API_URL}/export/stories/${storyId}/epub`, {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${token}`
+                    }
+                  });
+                  if (!res.ok) throw new Error('EPUB export failed');
+                  const blob = await res.blob();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  const safeTitle = (story.title || 'story').replace(/[^a-z0-9\-_]+/gi, '_');
+                  a.href = url;
+                  a.download = `${safeTitle}.epub`;
+                  document.body.appendChild(a);
+                  a.click();
+                  a.remove();
+                  URL.revokeObjectURL(url);
+                } catch (e) {
+                  setError(e.message || 'EPUB export failed');
+                } finally {
+                  setExporting(false);
+                }
+              }}
+            >
+              Export EPUB
+            </Button>
+          </Box>
+        </Box>
       </Box>
 
       {/* Commands Panel */}
@@ -499,6 +588,27 @@ function StoryPlay() {
           </Button>
         </Box>
       </Paper>
+
+      {/* Bookify Dialog */}
+      <Dialog open={exportOpen} onClose={() => setExportOpen(false)} fullWidth maxWidth="md">
+        <DialogTitle>{exportData?.title || 'Bookify'}</DialogTitle>
+        <DialogContent dividers>
+          {exporting && <LinearProgress sx={{ mb: 2 }} />}
+          {exportError && <Alert severity="error" sx={{ mb: 2 }}>{exportError}</Alert>}
+          {exportData && (
+            <Typography component="pre" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
+              {exportData.content}
+            </Typography>
+          )}
+          {!exporting && !exportData && !exportError && (
+            <Typography variant="body2" color="text.secondary">Preparing…</Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setExportOpen(false)}>Close</Button>
+          <Button onClick={handleDownloadTxt} disabled={!exportData} variant="contained">Download .txt</Button>
+        </DialogActions>
+      </Dialog>
 
 
     </Box>
