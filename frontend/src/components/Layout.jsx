@@ -141,7 +141,7 @@ function Layout({ children, onThemeToggle, isDarkMode }) {
           zIndex: theme.zIndex.drawer + 1,
         }}
       >
-        <Toolbar sx={{ minHeight: '60px !important' }}>
+        <Toolbar sx={{ minHeight: isMobile ? '56px !important' : '60px !important' }}>
           <IconButton
             color="inherit"
             aria-label="open drawer"
@@ -255,14 +255,14 @@ function Layout({ children, onThemeToggle, isDarkMode }) {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
+          p: { xs: 1.5, md: 3 },
           width: '100%',
-          mt: '60px', // AppBar height
+          mt: isMobile ? '56px' : '60px', // AppBar height
           backgroundColor: 'background.default',
           minHeight: 'calc(100vh - 60px)',
         }}
       >
-        <Container maxWidth="xl">
+        <Container maxWidth={isMobile ? 'md' : 'xl'}>
           {children}
         </Container>
       </Box>

@@ -18,6 +18,7 @@ import {
   DialogActions,
   LinearProgress
 } from '@mui/material';
+import { useTheme, useMediaQuery, ButtonGroup } from '@mui/material';
 import {
   Send as SendIcon,
   Casino as CasinoIcon,
@@ -32,6 +33,8 @@ import useAISettingsStore from '../store/aiSettingsStore';
 const API_URL = import.meta.env.VITE_API_URL;
 
 function StoryPlay() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { storyId } = useParams();
   const navigate = useNavigate();
   const { user, token } = useSharedAuthStore();
@@ -46,22 +49,31 @@ function StoryPlay() {
   const [exportError, setExportError] = useState('');
   const [exportOpen, setExportOpen] = useState(false);
   const [exportData, setExportData] = useState(null);
-  const messagesEndRef = useRef(null);
+  const containerRef = useRef(null);
+  const endRef = useRef(null);
   const inputRef = useRef(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (endRef.current) {
+      endRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    } else if (containerRef.current) {
+      const el = containerRef.current;
+      el.scrollTop = el.scrollHeight;
+    }
   };
 
   const scrollToTopOfNewResponse = () => {
-    const messageContainer = document.getElementById('message-container');
-    if (messageContainer) {
-      messageContainer.scrollTop = messageContainer.scrollHeight;
+    if (containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
   };
 
   useEffect(() => {
     scrollToBottom();
+    // Keep the composer focused so the player can quickly respond after AI messages
+    if (inputRef.current) {
+      try { inputRef.current.focus(); } catch (_) {}
+    }
   }, [messages]);
 
   useEffect(() => {
@@ -367,7 +379,7 @@ function StoryPlay() {
         <Paper
           sx={{
             p: 2,
-            maxWidth: '70%',
+            maxWidth: { xs: '100%', md: '70%' },
             backgroundColor: isUser ? 'primary.main' : 'background.paper',
             color: isUser ? 'white' : 'text.primary',
             border: isTimeout ? 2 : 1,
@@ -440,13 +452,14 @@ function StoryPlay() {
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button variant="outlined" onClick={handleBookify} disabled={exporting}>
-              {exporting ? 'Bookifying…' : 'Bookify (Free)'}
-            </Button>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={async () => {
+            <ButtonGroup size={isMobile ? 'small' : 'medium'}>
+              <Button variant="outlined" onClick={handleBookify} disabled={exporting}>
+                {exporting ? 'Bookifying…' : 'Bookify (Free)'}
+              </Button>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={async () => {
                 if (!storyId || !token) return;
                 setExporting(true);
                 try {
@@ -472,10 +485,11 @@ function StoryPlay() {
                 } finally {
                   setExporting(false);
                 }
-              }}
-            >
-              Export EPUB
-            </Button>
+                }}
+              >
+                Export EPUB
+              </Button>
+            </ButtonGroup>
           </Box>
         </Box>
       </Box>
@@ -535,7 +549,7 @@ function StoryPlay() {
       )}
 
       {/* Messages */}
-      <Box sx={{ flex: 1, overflow: 'auto', p: 2 }} ref={messagesEndRef} id="message-container">
+      <Box sx={{ flex: 1, overflow: 'auto', p: { xs: 1.5, md: 2 } }} ref={containerRef} id="message-container">
         {messages.map(formatMessage)}
         {loading && (
           <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 2 }}>
@@ -547,7 +561,7 @@ function StoryPlay() {
             </Paper>
           </Box>
         )}
-        <div ref={messagesEndRef} />
+        <div ref={endRef} />
       </Box>
 
       {/* Error Alert */}
@@ -558,7 +572,7 @@ function StoryPlay() {
       )}
 
       {/* Input Form */}
-      <Paper sx={{ p: 2 }}>
+      <Paper sx={{ p: { xs: 1, md: 2 }, position: { xs: 'sticky', md: 'static' }, bottom: 0, left: 0, right: 0 }}>
         <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', gap: 1 }}>
           <TextField
             fullWidth
@@ -576,7 +590,7 @@ function StoryPlay() {
             disabled={loading}
             inputRef={inputRef}
             multiline
-            maxRows={3}
+            maxRows={4}
           />
           <Button
             type="submit"
