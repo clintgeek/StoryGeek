@@ -41,7 +41,11 @@ class StoryController {
         { title: title || 'Untitled', genre: genre || 'Fantasy' },
         questionsPrompt,
         null,
-        userToken
+        userToken,
+        {
+          provider: req.body.provider,
+          model: req.body.model
+        }
       );
 
       // Create story with initial setup state
@@ -486,7 +490,16 @@ class StoryController {
           const authHeader = req.headers['authorization'];
           const userToken = authHeader && authHeader.split(' ')[1];
 
-          const aiResponse = await aiService.generateStoryResponse(story, 'Continue the story from this new situation', null, userToken);
+      const aiResponse = await aiService.generateStoryResponse(
+        story,
+        'Continue the story from this new situation',
+        null,
+        userToken,
+        {
+          provider: req.body.provider,
+          model: req.body.model
+        }
+      );
 
           // Add the AI response as an event
           const newEvent = {
@@ -548,7 +561,16 @@ class StoryController {
             const authHeader = req.headers['authorization'];
             const userToken = authHeader && authHeader.split(' ')[1];
 
-            const aiResponse = await aiService.generateStoryResponse(story, openingPrompt, null, userToken);
+      const aiResponse = await aiService.generateStoryResponse(
+        story,
+        openingPrompt,
+        null,
+        userToken,
+        {
+          provider: req.body.provider,
+          model: req.body.model
+        }
+      );
 
             // Update story to active status
             story.status = 'active';
@@ -590,51 +612,8 @@ class StoryController {
       }
 
       console.log('Handling regular story continuation');
-
-                  // Check if user input needs a dice roll
+      // Let the AI decide when to roll; we only capture a dice line if present in AI output now
       let diceResult = null;
-      const diceKeywords = [
-        'attack', 'fight', 'combat', 'battle', 'hit', 'strike',
-        'persuade', 'convince', 'negotiate', 'bargain', 'bribe',
-        'stealth', 'sneak', 'hide', 'conceal',
-        'investigate', 'search', 'examine', 'inspect', 'open', 'take', 'grab', 'collect',
-        'survive', 'navigate', 'find', 'locate',
-        'repair', 'fix', 'craft', 'build',
-        'climb', 'jump', 'run', 'escape',
-        'lockpick', 'hack', 'disable',
-        'heal', 'treat', 'cure',
-        'cast', 'spell', 'magic',
-        'shoot', 'aim', 'fire',
-        'enter', 'approach', 'go to', 'walk to', 'move to'
-      ];
-
-      const input = userInput.toLowerCase();
-      const needsRoll = diceKeywords.some(keyword => input.includes(keyword));
-
-      if (needsRoll) {
-        console.log('Dice roll needed for:', userInput);
-
-        // Determine situation type
-        let situation = 'investigation'; // Default to investigation for most actions
-        if (input.includes('attack') || input.includes('fight') || input.includes('combat')) {
-          situation = 'combat';
-        } else if (input.includes('persuade') || input.includes('convince') || input.includes('negotiate')) {
-          situation = 'persuasion';
-        } else if (input.includes('stealth') || input.includes('sneak') || input.includes('hide')) {
-          situation = 'stealth';
-        } else if (input.includes('investigate') || input.includes('search') || input.includes('examine') || input.includes('open') || input.includes('take') || input.includes('grab') || input.includes('collect')) {
-          situation = 'investigation';
-        } else if (input.includes('survive') || input.includes('navigate') || input.includes('find') || input.includes('locate')) {
-          situation = 'survival';
-        }
-
-        diceResult = diceService.rollForSituation(situation);
-        console.log('Dice result:', diceResult);
-
-        // Store dice result in story
-        story.diceResults.push(diceResult);
-        story.stats.totalDiceRolls++;
-      }
 
       // Store user's input as an event first
       const userEvent = {
@@ -654,7 +633,16 @@ class StoryController {
       const authHeader = req.headers['authorization'];
       const userToken = authHeader && authHeader.split(' ')[1];
 
-      const aiResponse = await aiService.generateStoryResponse(story, userInput, diceResult, userToken);
+      const aiResponse = await aiService.generateStoryResponse(
+        story,
+        userInput,
+        diceResult,
+        userToken,
+        {
+          provider: req.body.provider,
+          model: req.body.model
+        }
+      );
 
       // Extract and save tags from AI response
       const tags = tagService.extractTags(aiResponse.content, storyId, 'narrative');
@@ -667,11 +655,18 @@ class StoryController {
       console.log('AI response received, updating story...');
 
       // Update story with AI response event
+      // If AI provided a diceResult, save it and include it in the event
+      if (aiResponse.diceResult) {
+        story.diceResults.push(aiResponse.diceResult);
+        story.stats.totalDiceRolls++;
+      }
+
       const newEvent = {
         type: 'narrative',
         description: aiResponse.content,
         timestamp: new Date(),
-        diceResults: []
+        diceResults: aiResponse.diceResult ? [aiResponse.diceResult] : [],
+        diceMeta: aiResponse.diceMeta || null
       };
 
       story.events.push(newEvent);
@@ -696,7 +691,8 @@ class StoryController {
 
       res.json({
         aiResponse: aiResponse.content,
-        diceResult: diceResult,
+        diceResult: aiResponse.diceResult || null,
+        diceMeta: aiResponse.diceMeta || null,
         currentChapter: story.worldState.currentChapter
       });
 

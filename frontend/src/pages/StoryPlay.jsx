@@ -22,6 +22,7 @@ import {
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import useSharedAuthStore from '../store/sharedAuthStore';
+import useAISettingsStore from '../store/aiSettingsStore';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -29,6 +30,7 @@ function StoryPlay() {
   const { storyId } = useParams();
   const navigate = useNavigate();
   const { user, token } = useSharedAuthStore();
+  const { selectedProvider, selectedModelId } = useAISettingsStore();
   const [story, setStory] = useState(null);
   const [messages, setMessages] = useState([]);
   const [userInput, setUserInput] = useState('');
@@ -123,7 +125,9 @@ function StoryPlay() {
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
-          userInput: input
+          userInput: input,
+          provider: selectedProvider || 'groq',
+          model: selectedModelId || 'llama3-70b-8192'
         }),
       });
 
@@ -144,7 +148,8 @@ function StoryPlay() {
         type: 'ai',
         content: data.aiResponse,
         timestamp: new Date(),
-        diceResults: data.diceResult ? [data.diceResult] : []
+        diceResults: data.diceResult ? [data.diceResult] : [],
+        diceMeta: data.diceMeta || null
       };
 
       setMessages(prev => [...prev, aiMessage]);
@@ -326,9 +331,39 @@ function StoryPlay() {
             {message.content}
           </Typography>
 
-
-
-
+          {message.diceResults && message.diceResults.length > 0 && (
+            (() => {
+              const d = message.diceResults[0];
+              const situation = message.diceMeta?.situation
+                ? message.diceMeta.situation.charAt(0).toUpperCase() + message.diceMeta.situation.slice(1)
+                : null;
+              const reason = message.diceMeta?.reason || '';
+              const interpretation = d.interpretation || '';
+              return (
+                <Box sx={{ mt: 1.25, display: 'flex', alignItems: 'center', gap: 1.25 }} aria-label={`Dice roll d20 ${d.result}${situation ? ` for ${situation}` : ''}`}>
+                  <CasinoIcon fontSize="small" sx={{ opacity: 0.8 }} />
+                  <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                    d20: {d.result}
+                  </Typography>
+                  {situation && (
+                    <Tooltip title={interpretation} arrow>
+                      <Chip size="small" label={situation} variant="outlined" />
+                    </Tooltip>
+                  )}
+                  {interpretation && !situation && (
+                    <Typography variant="body2" color="text.secondary">
+                      {interpretation}
+                    </Typography>
+                  )}
+                  {reason && (
+                    <Typography variant="caption" color="text.secondary">
+                      • {reason}
+                    </Typography>
+                  )}
+                </Box>
+              );
+            })()
+          )}
 
           <Typography variant="caption" sx={{ display: 'block', mt: 1, opacity: 0.5 }}>
             {message.timestamp.toLocaleTimeString()}

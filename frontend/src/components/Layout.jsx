@@ -48,6 +48,7 @@ const storyMenuItems = [
 
 function Layout({ children, onThemeToggle, isDarkMode }) {
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useSharedAuthStore();

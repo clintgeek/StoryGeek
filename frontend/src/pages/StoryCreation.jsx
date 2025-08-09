@@ -23,6 +23,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import useSharedAuthStore from '../store/sharedAuthStore';
+import useAISettingsStore from '../store/aiSettingsStore';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -44,6 +45,7 @@ const genres = [
 function StoryCreation() {
   const navigate = useNavigate();
   const { user, token } = useSharedAuthStore();
+  const { selectedProvider, selectedModelId } = useAISettingsStore();
   const [formData, setFormData] = useState({
     title: '',
     genre: 'Fantasy',
@@ -123,7 +125,9 @@ function StoryCreation() {
         },
         body: JSON.stringify({
           ...formData,
-          userId: user.id
+          userId: user.id,
+          provider: selectedProvider || 'groq',
+          model: selectedModelId || 'llama3-70b-8192'
         }),
       });
 
